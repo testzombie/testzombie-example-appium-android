@@ -1,6 +1,6 @@
-package ai.testzombie.appium;
+package ai.testzombie.appium.support;
 
-record MutationLevel(
+public record MutationLevel(
         int value,
         String password,
         String passwordConfirm,
@@ -15,12 +15,21 @@ record MutationLevel(
         String termsCss,
         String finishCss
 ) {
-    static MutationLevel of(int level) {
+    public static MutationLevel of(int level) {
         return switch (level) {
             case 0 -> new MutationLevel(0,
-                    "password-input", "password-confirm-input", "password-next",
-                    "first-name-input", "last-name-input", "email-input", "person-next",
-                    "plan-enterprise", "plan-selector", "plan-next",
+                    // "password-input", "password-confirm-input", "password-next",
+                    // "account-password", "password-confirm-input", "password-next",
+                    // "account-password", "account-password-repeat", "password-next",
+                    "account-password", "account-password-repeat", "access-continue",
+                    // "first-name-input", "last-name-input", "email-input", "person-next",
+                    // "given-name-field", "last-name-input", "email-input", "person-next",
+                    // "given-name-field", "family-name-field", "email-input", "person-next",
+                    // "given-name-field", "family-name-field", "contact-email-field", "person-next",
+                    "given-name-field", "family-name-field", "contact-email-field", "identity-continue",
+                    // "plan-enterprise", "plan-selector", "plan-next",
+                    // "package-enterprise", "plan-selector", "plan-next",
+                    "package-enterprise", "plan-selector", "package-summary",
                     "terms", "finishButton");
             case 1 -> changed(1, false, false);
             case 2 -> changed(2, false, false);
@@ -46,7 +55,7 @@ record MutationLevel(
                 "[data-qa='confirmation-check']", "[data-qa='finish-action']");
     }
 
-    boolean usesPlanDropdown() {
+    public boolean usesPlanDropdown() {
         return value == 4;
     }
 }

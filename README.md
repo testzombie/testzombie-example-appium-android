@@ -1,98 +1,59 @@
-# TestZombie + Appium Android – Quickstart
+# TestZombie Appium Android Example
 
-Dieses Beispielprojekt zeigt die Verwendung von **TestZombie** mit **Appium** für eine Android-Hybrid-App.
+A small Appium Android project that demonstrates **TestZombie Self-Healing**, **Discovery**, and optional **Persistent Healing** with `com.testzombie:testzombie-lib-java`.
 
-Die App enthält neben nativen Android-Elementen auch **Web-Inhalte**. Während der Tests wird deshalb vom nativen App-Kontext (`NATIVE_APP`) in einen `WEBVIEW`-Kontext gewechselt.
+The example intentionally uses normal Appium tests and Page Objects. The three main demonstrations use the original **Mutation Level 0** locators; there are no TestZombie-specific fallback locators in the test code. The demo app is **hybrid**: it starts in `NATIVE_APP` and finishes in a `WEBVIEW`.
 
-Für den WebView-Zugriff benötigt Appium einen zur installierten Chrome-/WebView-Version passenden **ChromeDriver**. Deshalb muss der Appium-Server mit aktiviertem automatischem ChromeDriver-Download gestartet werden.
+## Quick start — 1, 2, 3
 
----
+### 1. Install
 
-## Voraussetzungen
+Clone the project and make sure the following are available:
 
-Für die Ausführung werden benötigt:
+- **Java 21** or newer and Maven
+- Node.js and Appium with the **UiAutomator2** driver
+- Android SDK, `adb`, and an Android emulator or connected device
+- Chrome / Android System WebView on the Android device
+- The bundled `testzombie-demo.apk` in the project root
 
-- Java 17+
-- Maven
-- Appium
-- Appium UiAutomator2 Driver
-- Android SDK / ADB
-- Android Emulator oder physisches Android-Gerät
-- Chrome bzw. Android System WebView auf dem verwendeten Gerät
-- TestZombie API Key und E-Mail-Adresse
-
-Die Beispiel-APK `testzombie-demo.apk` liegt standardmäßig im Projektverzeichnis.
-
----
-
-
-## 1. Appium starten
-
-Die Demo-App ist eine **Hybrid-App** und enthält Web-Inhalte.
-
-Im Test wird deshalb unter anderem in einen `WEBVIEW`-Kontext gewechselt. Für diesen Zugriff verwendet Appium ChromeDriver.
-
-Die Android-Testkonfiguration enthält bereits:
-
-Zusätzlich muss der Appium-Server den automatischen ChromeDriver-Download erlauben.
-
-Appium deshalb mit folgendem Befehl starten:
+If you have not installed Appium and the Android driver yet:
 
 ```bash
-appium --allow-insecure uiautomator2:chromedriver_autodownload
+npm install -g appium
+appium driver install uiautomator2
 ```
 
-> **Wichtig:** Appium für dieses Projekt nicht nur mit `appium` starten.  
-> Ohne `chromedriver_autodownload` kann der Wechsel in den WebView fehlschlagen, wenn kein kompatibler ChromeDriver verfügbar ist.
-
-Appium wird vom Projekt standardmäßig unter folgender Adresse erwartet:
-
----
-
-## 2. TestZombie Credentials
-
-Für die Verwendung von TestZombie werden ein **API Key** und die zugehörige **E-Mail-Adresse** benötigt.
-
-Die Credentials können auf verschiedene Arten gesetzt werden.
-
-### Variante 1 – Credentials direkt im Java-Code setzen
-
-Für einen einfachen lokalen Test oder zum schnellen Ausprobieren können die Credentials direkt bei der Initialisierung gesetzt werden.
-
-Zum Beispiel in `AppiumTestBase`:
-
-```java
-TestZombieDriver.setCredentials(
-        "YOUR_API_KEY",
-        "YOUR_EMAIL"
-);
-```
-
-Beispiel im Zusammenhang mit der Driver-Erzeugung:
-
-```java
-@BeforeEach
-void setUp() {
-    TestZombieDriver.setCredentials(
-            "YOUR_API_KEY",
-            "YOUR_EMAIL"
-    );
-
-    // Appium / TestZombie Driver anschließend wie gewohnt erzeugen
-}
-```
-
-Danach können die Tests ohne zusätzliche Credential-Parameter gestartet werden:
+Start an Android emulator (or connect a physical device), then check that `adb` sees it:
 
 ```bash
-mvn test
+adb devices
 ```
 
-> Diese Variante eignet sich vor allem zum schnellen lokalen Ausprobieren. Echte API Keys sollten nicht in Git eingecheckt werden.
+The example uses **TestZombie Java SDK 1.3.1** via Maven:
 
-### Variante 2 – Credentials in der `pom.xml` setzen
+```xml
+<dependency>
+    <groupId>com.testzombie</groupId>
+    <artifactId>testzombie-lib-java</artifactId>
+    <version>1.3.1</version>
+</dependency>
+```
 
-Die Credentials können auch im Maven-Profil der `pom.xml` hinterlegt werden.
+**Start Appium in a separate terminal** before running the tests:
+
+```bash
+appium server --allow-insecure uiautomator2:chromedriver_autodownload
+```
+
+The `chromedriver_autodownload` permission matters because Appium needs a ChromeDriver compatible with the device's WebView version to switch into the `WEBVIEW` context. The default Appium server URL is `http://127.0.0.1:4723`.
+
+### 2. Configure TestZombie
+
+Create an account at **https://testzombie.ai** and copy your **API key** and **account e-mail**. Choose one of the following ways to configure the credentials.
+
+#### Option 1 — Enter credentials in `pom.xml` (quickest local setup)
+
+Open `pom.xml` and find the `defaults` profile near the bottom. Fill in its two existing, empty credential properties:
 
 ```xml
 <profiles>
@@ -109,411 +70,438 @@ Die Credentials können auch im Maven-Profil der `pom.xml` hinterlegt werden.
 </profiles>
 ```
 
-Damit die Werte im Testprozess als System Properties verfügbar sind, müssen sie über das Maven Surefire Plugin weitergegeben werden.
+The existing Maven Surefire configuration passes these values as Java system properties. `AppiumDriverFactory` reads them and calls `TestZombieDriver.setCredentials(...)` before creating the Android session.
 
-Zum Beispiel:
-
-```xml
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-surefire-plugin</artifactId>
-    <configuration>
-        <systemPropertyVariables>
-            <testzombie.apikey>${testzombie.apikey}</testzombie.apikey>
-            <testzombie.email>${testzombie.email}</testzombie.email>
-        </systemPropertyVariables>
-    </configuration>
-</plugin>
-```
-
-Im Java-Code können die Werte anschließend über die System Properties gelesen werden:
-
-```java
-String apiKey = System.getProperty("testzombie.apikey");
-String email = System.getProperty("testzombie.email");
-
-TestZombieDriver.setCredentials(apiKey, email);
-```
-
-Danach reicht zum Starten der Tests:
+With the Appium server running, you can now start a demo **without adding credential arguments**:
 
 ```bash
-mvn test
+mvn test -Dtest=OnboardingFlowTest
 ```
 
-> Auch hier gilt: Eine `pom.xml` mit echten Zugangsdaten sollte nicht in ein öffentliches oder gemeinsam genutztes Git-Repository eingecheckt werden.
+> **Security:** This is convenient for a local demo only. **Never commit or share a `pom.xml` containing real credentials.** Restore the two properties to empty values before pushing. For CI/CD, use one of the alternatives below.
 
-### Variante 3 – Credentials über Maven übergeben
+#### Option 2 — Pass credentials as Maven parameters
 
-Die Credentials können direkt beim Maven-Aufruf als System Properties gesetzt werden:
+Leave the credential properties in `pom.xml` empty and supply them when starting a test:
 
 ```bash
-mvn test \
+mvn test -Dtest=OnboardingFlowTest \
   -Dtestzombie.apikey=YOUR_API_KEY \
   -Dtestzombie.email=YOUR_EMAIL
 ```
 
-PowerShell:
+#### Option 3 — Set environment variables
 
-```powershell
-mvn test `
-  -Dtestzombie.apikey=YOUR_API_KEY `
-  -Dtestzombie.email=YOUR_EMAIL
+Leave the credential properties in `pom.xml` empty and set the environment variables instead.
+
+**Windows CMD**
+
+```cmd
+set TESTZOMBIE_API_KEY=YOUR_API_KEY
+set TESTZOMBIE_EMAIL=YOUR_EMAIL
 ```
 
-Die Werte werden in Java über
-
-```java
-System.getProperty("testzombie.apikey")
-System.getProperty("testzombie.email")
-```
-
-gelesen.
-
-### Variante 4 – Credentials über Environment Variables
-
-Linux / macOS:
-
-```bash
-export TESTZOMBIE_API_KEY="YOUR_API_KEY"
-export TESTZOMBIE_EMAIL="YOUR_EMAIL"
-
-mvn test
-```
-
-PowerShell:
+**PowerShell**
 
 ```powershell
 $env:TESTZOMBIE_API_KEY="YOUR_API_KEY"
 $env:TESTZOMBIE_EMAIL="YOUR_EMAIL"
-
-mvn test
 ```
 
-Die Environment Variables werden in Java über
-
-```java
-System.getenv("TESTZOMBIE_API_KEY")
-System.getenv("TESTZOMBIE_EMAIL")
-```
-
-gelesen.
-
-### Credential-Auflösung im Beispielprojekt
-
-Wenn die Credentials nicht direkt im Code gesetzt werden, verwendet `AppiumTestBase` die vorhandene Auflösung über System Properties und Environment Variables:
-
-```java
-String apiKey = firstNonBlank(
-        System.getProperty("testzombie.apikey"),
-        System.getenv("TESTZOMBIE_API_KEY")
-);
-
-String email = firstNonBlank(
-        System.getProperty("testzombie.email"),
-        System.getenv("TESTZOMBIE_EMAIL")
-);
-
-TestZombieDriver.setCredentials(apiKey, email);
-```
-
-Dabei haben die System Properties Vorrang vor den Environment Variables:
-
-```text
--Dtestzombie.apikey
--Dtestzombie.email
-        ↓
-TESTZOMBIE_API_KEY
-TESTZOMBIE_EMAIL
-```
-
-Für lokale Entwicklung und CI/CD sind Maven-Properties oder Environment Variables meist die bessere Wahl, damit keine Secrets im Quellcode oder in eingecheckten Konfigurationsdateien liegen.
-
----
-
-## 3. Tests starten
-
-Appium zuerst in einem Terminal mit aktiviertem ChromeDriver-Autodownload starten:
-
-```bash
-appium server --allow-insecure uiautomator2:chromedriver_autodownload
-```
-
-Anschließend können die Tests – abhängig von der gewählten Credential-Variante – in einem zweiten Terminal gestartet werden.
-
-### Credentials direkt im Java-Code oder in der `pom.xml`
-
-Wenn die Credentials bereits direkt im Java-Code oder im `defaults`-Profil der `pom.xml` gesetzt wurden:
-
-```bash
-mvn test
-```
-
-### Credentials über Maven
-
-```bash
-mvn test \
-  -Dtestzombie.apikey=YOUR_API_KEY \
-  -Dtestzombie.email=YOUR_EMAIL
-```
-
-### Credentials über Environment Variables
-
-Credentials einmal setzen:
+**Linux / macOS**
 
 ```bash
 export TESTZOMBIE_API_KEY="YOUR_API_KEY"
 export TESTZOMBIE_EMAIL="YOUR_EMAIL"
 ```
 
-Tests starten:
+`AppiumDriverFactory` looks for Java system properties first, then the corresponding environment variables. All three options use the same `TestZombieDriver.setCredentials(...)` integration.
+
+### 3. Run the Self-Healing demo
+
+With your Android device/emulator running and Appium started in the other terminal:
 
 ```bash
-mvn test
+mvn test -Dtest=OnboardingFlowTest
 ```
 
----
-
-## 4. APK konfigurieren
-
-Standardmäßig verwendet das Projekt:
+The same hybrid onboarding flow runs through five mutation levels:
 
 ```text
-./testzombie-demo.apk
+OFF → LIGHT → REALISTIC → HARD → EXTREME
+ 0      1        2        3        4
 ```
 
-Eine andere APK kann über eine System Property angegeben werden:
+JUnit executes a separate test/session for each level. At higher levels the original locators may no longer work. TestZombie attempts to identify the correct element so the Appium action can continue.
 
-```bash
-mvn test \
-  -Dapp.apk=/path/to/testzombie-demo.apk \
-  -Dtestzombie.apikey=YOUR_API_KEY \
-  -Dtestzombie.email=YOUR_EMAIL
-```
-
-Alternativ kann der APK-Pfad über eine Environment Variable gesetzt werden:
-
-Linux / macOS:
-
-```bash
-export APP_APK="/path/to/testzombie-demo.apk"
-```
-
-PowerShell:
-
-```powershell
-$env:APP_APK="C:\path\to\testzombie-demo.apk"
-```
+> **Why select a test class?** `mvn test` runs all discovered tests, including Discovery and the Code Update demo. Code Update uses `APPLY` by default and may change your Java source files. Prefer the explicit commands throughout this README.
 
 ---
 
-## 5. Weitere Konfiguration
+## Discovery — learn a working business flow
 
-Die wichtigsten Einstellungen können entweder über System Properties oder Environment Variables überschrieben werden:
+Self-Healing fixes broken locators. **Discovery has a different job:** it observes a successful test flow and collects useful context about what happened.
 
-| Einstellung | System Property | Environment Variable | Standard |
-|---|---|---|---|
-| Appium Server | `-Dappium.server=...` | `APPIUM_SERVER` | `http://127.0.0.1:4723` |
-| Device Name | `-Ddevice.name=...` | `DEVICE_NAME` | `Pixel 4` |
-| APK | `-Dapp.apk=...` | `APP_APK` | `./testzombie-demo.apk` |
-| TestZombie API Key | `-Dtestzombie.apikey=...` | `TESTZOMBIE_API_KEY` | – |
-| TestZombie E-Mail | `-Dtestzombie.email=...` | `TESTZOMBIE_EMAIL` | – |
-
-Beispiel:
+Run the dedicated Discovery demo:
 
 ```bash
-mvn test \
-  -Ddevice.name="Pixel 8" \
-  -Dapp.apk=/path/to/testzombie-demo.apk \
-  -Dtestzombie.apikey=YOUR_API_KEY \
-  -Dtestzombie.email=YOUR_EMAIL
+mvn test -Dtest=DiscoveryLevel0Test
 ```
 
----
+This example executes **one stable onboarding flow at Mutation Level 0 / OFF** — just like the Playwright Discovery example. Nothing is intentionally broken: TestZombie should observe the application's normal behavior.
 
-## 6. Einzelne Tests ausführen
+### What happens during Discovery?
 
-Nur die Healing-Demo:
-
-```bash
-mvn -Dtest=BaselineHealingDemoTest test
-```
-
-Nur die Mutation-Level-Matrix:
-
-```bash
-mvn -Dtest=MutationLevelMatrixTest test
-```
-
-Wenn die Credentials nicht bereits direkt im Java-Code, in der `pom.xml` oder als Environment Variables gesetzt wurden, müssen sie beim Maven-Aufruf zusätzlich angegeben werden.
-
-Beispiel:
-
-```bash
-mvn \
-  -Dtest=BaselineHealingDemoTest \
-  -Dtestzombie.apikey=YOUR_API_KEY \
-  -Dtestzombie.email=YOUR_EMAIL \
-  test
-```
-
----
-
-## 7. Was zeigt die Demo?
-
-### `BaselineHealingDemoTest`
-
-Der Test verwendet für alle Mutation Levels die Baseline-Locators aus Level 0.
-
-Der eigentliche Testablauf bleibt unverändert, während TestZombie die Healing-Funktion übernimmt.
-
-### `MutationLevelMatrixTest`
-
-Der Kontrolltest enthält die erwarteten Locators für die verschiedenen Mutation Levels.
-
-Damit kann unabhängig von der Healing-Demo geprüft werden, ob die jeweiligen Varianten der Demo-App grundsätzlich bedienbar sind.
-
-Der Ablauf ist:
+In simple terms:
 
 ```text
-Mutation Level auswählen
+Existing Appium test
         ↓
-Passwortdaten erfassen
+successful native + WebView user flow
         ↓
-Personendaten erfassen
+TestZombie Discovery
         ↓
-Enterprise-Plan auswählen
+pages + elements + interactions + context
         ↓
-von NATIVE_APP in WEBVIEW wechseln
+AI Test Design
         ↓
-Bestätigung ausführen
+business test cases
         ↓
-Erfolgsstatus prüfen
+selected test cases
+        ↓
+automation code
 ```
 
----
+Discovery can collect context from the actual successful user journey, including visited screens/pages, relevant elements, interactions, and their sequence. This can support future AI-based test design and automation generation.
 
-## 8. Projektstruktur
+The dedicated test is in:
 
 ```text
-testzombie-example-appium-android/
-├── testzombie-demo.apk
-├── pom.xml
-├── README.md
-├── scripts/
-└── src/
-    └── test/
-        └── java/
-            └── ai/
-                └── testzombie/
-                    └── appium/
-                        ├── AppiumTestBase.java
-                        ├── BaselineHealingDemoTest.java
-                        ├── HybridOnboardingPage.java
-                        ├── MutationLevel.java
-                        ├── MutationLevelMatrixTest.java
-                        └── ScrollHelper.java
+src/test/java/ai/testzombie/appium/tests/DiscoveryLevel0Test.java
 ```
 
-### `AppiumTestBase`
-
-Enthält:
-
-- Appium-Server-Konfiguration
-- Device-Konfiguration
-- APK-Konfiguration
-- TestZombie Credential-Auflösung
-- Android Driver-Erzeugung
-- ChromeDriver-Autodownload-Capability
-- Screenshot-Erzeugung
-
-### `HybridOnboardingPage`
-
-Enthält die vorhandenen nativen Android- und WebView-Interaktionen.
-
-### `MutationLevel`
-
-Enthält die Locator-Konfiguration für die Mutation Levels.
-
----
-
-## 9. Troubleshooting
-
-### `Missing TestZombie credentials`
-
-Es wurden keine TestZombie-Credentials gefunden.
-
-Prüfen, ob die Credentials über eine der beschriebenen Varianten gesetzt wurden:
-
-1. direkt im Java-Code
-2. im `defaults`-Profil der `pom.xml`
-3. über Maven mit `-Dtestzombie.apikey` und `-Dtestzombie.email`
-4. über `TESTZOMBIE_API_KEY` und `TESTZOMBIE_EMAIL`
-
-Beispiel über Maven:
-
-```bash
-mvn test \
-  -Dtestzombie.apikey=YOUR_API_KEY \
-  -Dtestzombie.email=YOUR_EMAIL
-```
-
-### `APK nicht gefunden`
-
-Prüfen, ob `testzombie-demo.apk` im Projektroot liegt.
-
-Alternativ einen eigenen Pfad setzen:
-
-```bash
--Dapp.apk=/path/to/testzombie-demo.apk
-```
-
-
-### WebView / ChromeDriver Fehler
-
-Wenn beim Wechsel in den `WEBVIEW` ein Fehler wie `No Chromedriver found` auftritt:
-
-1. prüfen, ob Chrome bzw. Android System WebView auf dem verwendeten Gerät vorhanden ist
-2. Appium mit aktiviertem ChromeDriver-Autodownload starten:
-
-```bash
-appium server --allow-insecure uiautomator2:chromedriver_autodownload
-```
-
-3. sicherstellen, dass Appium bei Bedarf einen kompatiblen ChromeDriver herunterladen kann
-
----
-
-## Quickstart
-
-```text
-1. Credentials setzen
-   - direkt im Java-Code
-   - oder in der pom.xml
-   - alternativ über Maven / Environment Variables
-2. Appium mit chromedriver_autodownload starten
-3. mvn test ausführen
-```
-
-Einfachste Variante für einen lokalen Test:
+The important part is deliberately small:
 
 ```java
-TestZombieDriver.setCredentials(
-        "YOUR_API_KEY",
-        "YOUR_EMAIL"
+@Override
+protected boolean discoveryEnabled() {
+    return true;
+}
+```
+
+Before the Appium session is created, `BaseAndroidTest` passes this flag to `AppiumDriverFactory`, which calls:
+
+```java
+NativeDiscovery.configure(discoveryEnabled);
+```
+
+This helper configures **the TestZombie SDK's native Discovery**, rather than writing a separate test-side JSON trace. With the corresponding SDK setters, the equivalent configuration is:
+
+```java
+TestZombieDriver.setDiscoveryEnabled(true);
+TestZombieDriver.setDiscoveryFileEnabled(true);
+TestZombieDriver.setDiscoveryFilePath(
+    "test-results/testzombie-discovery-{testRunId}.json"
 );
 ```
 
-Appium starten:
+The provided `NativeDiscovery` helper checks for the public setters at runtime. **Local JSON output is requested, not guaranteed:** it depends on the file-related setters being available in the SDK. When supported, the output path is:
+
+```text
+test-results/testzombie-discovery-<testRunId>.json
+```
+
+The test itself remains normal Appium/Page-Object code.
+
+### Why Mutation Level 0?
+
+The regular demo intentionally changes locator-relevant UI properties to demonstrate Self-Healing. The Discovery demo uses the stable baseline so the recorded context describes a **valid business process**.
+
+```text
+Discovery     → understand the working flow
+Self-Healing  → keep the flow running when locators change
+```
+
+---
+
+## Code Update — run Level 0, heal Level 1 and update the source
+
+Discovery learns a working flow. The **Code Update** demo shows the maintenance step that follows a UI change: TestZombie heals a broken locator and can persist the replacement in the Java Page Object.
+
+Run the dedicated demo:
+
+```bash
+mvn test -Dtest=CodeUpdateLevel0And1Test
+```
+
+Unlike the Playwright example, which starts at Level 1, this Android example runs the same onboarding journey **twice in one Appium/TestZombie session**:
+
+1. **Mutation Level 0 / OFF** — establish a successful baseline.
+2. **Restart the demo app**, without replacing the Appium/TestZombie session.
+3. **Mutation Level 1 / LIGHT** — repeat the same steps using the original Level-0 locators, allowing TestZombie to heal and write verified updates.
+
+### What should happen?
+
+```text
+Existing Android Appium test
+        ↓
+successful Level-0 baseline
+        ↓
+restart app (same Appium session)
+        ↓
+Mutation Level 1 changes the UI / locators
+        ↓
+original locator no longer works
+        ↓
+TestZombie heals the element at runtime
+        ↓
+action succeeds with the healed locator
+        ↓
+Code Update writes the working locator back to the Page Object
+```
+
+The dedicated test is in:
+
+```text
+src/test/java/ai/testzombie/appium/tests/CodeUpdateLevel0And1Test.java
+```
+
+This demo selects `APPLY` by default and also accepts `PREVIEW`:
+
+```java
+@Override
+protected SourceUpdateMode sourceUpdateMode() {
+    String value = System.getProperty("testzombie.codeupdate.mode", "apply").trim();
+    return switch (value.toLowerCase(Locale.ROOT)) {
+        case "apply" -> SourceUpdateMode.APPLY;
+        case "preview" -> SourceUpdateMode.PREVIEW;
+        default -> throw new IllegalArgumentException(
+            "testzombie.codeupdate.mode must be apply or preview");
+    };
+}
+```
+
+`AppiumDriverFactory` configures this mode **before** creating the session:
+
+```java
+TestZombieDriver.setSourceUpdateMode(sourceUpdateMode);
+```
+
+To preview changes without modifying Java files:
+
+```bash
+mvn test -Dtest=CodeUpdateLevel0And1Test -Dtestzombie.codeupdate.mode=preview
+```
+
+After an `APPLY` run, inspect the Page Object changes:
+
+```bash
+git diff -- src/test/java/ai/testzombie/appium/pages
+```
+
+To restore the original Page Object locators for another demonstration:
+
+```bash
+git restore -- src/test/java/ai/testzombie/appium/pages
+```
+
+> `git restore` discards **all uncommitted changes** in these files. Review `git diff` first if you have made manual edits.
+
+The scenarios stay intentionally separate:
+
+```text
+Discovery Level 0        → learn a valid business flow
+Code Update Level 0 → 1  → establish baseline, heal changed UI, persist locators
+```
+
+---
+
+## How TestZombie is integrated
+
+The central integration is intentionally small.
+
+Normal Appium:
+
+```java
+AndroidDriver driver = new AndroidDriver(serverUrl, options);
+```
+
+With TestZombie:
+
+```java
+TestZombieDriver.setCredentials(apiKey, email);
+TestZombieDriver.setSourceUpdateMode(sourceUpdateMode);
+AndroidDriver driver = TestZombieDriverMobile.createAndroid(serverUrl, options);
+```
+
+The example centralizes this in:
+
+```text
+src/test/java/ai/testzombie/appium/support/AppiumDriverFactory.java
+```
+
+The Android session uses `UiAutomator2Options` and the `ai.testzombie.hybriddemo` package. Its default configuration includes `Pixel 10` as the device name, `./testzombie-demo.apk` as the app path, and `http://127.0.0.1:4723` as the Appium server.
+
+Existing Page Object APIs and Selenium-style `By` locators remain familiar:
+
+```java
+private static final By PASSWORD = By.id("password-input");
+```
+
+The three feature tests **do not switch to level-specific locators** when the app changes. TestZombie is responsible for healing. The separate `MutationLevelMatrixTest` is a diagnostic control that intentionally uses known locators for each level.
+
+### Hybrid app: `NATIVE_APP` → `WEBVIEW`
+
+The onboarding process consists of:
+
+```text
+Select mutation level
+        ↓
+Enter and confirm password           (NATIVE_APP)
+        ↓
+Enter personal details               (NATIVE_APP)
+        ↓
+Choose Enterprise plan               (NATIVE_APP)
+        ↓
+Switch to WEBVIEW
+        ↓
+Accept terms and finish onboarding   (WEBVIEW)
+        ↓
+Verify success status
+```
+
+The WebView step requires a compatible ChromeDriver. Start Appium with the `uiautomator2:chromedriver_autodownload` insecure feature enabled, as shown in **Quick start → Install**.
+
+---
+
+## Optional: Persistent Healing modes
+
+The dedicated `CodeUpdateLevel0And1Test` enables `APPLY` by default. Other example tests use `OFF` for source updates.
+
+| Mode | Behavior |
+| --- | --- |
+| `OFF` | Do not update Java source files. |
+| `PREVIEW` | Log planned locator replacements without writing files. |
+| `APPLY` | Write successfully healed locators back into the Java source. |
+
+For this repository, select the Code Update mode with the test-specific property:
+
+```bash
+# Preview only
+mvn test -Dtest=CodeUpdateLevel0And1Test -Dtestzombie.codeupdate.mode=preview
+
+# Apply verified changes (the default)
+mvn test -Dtest=CodeUpdateLevel0And1Test -Dtestzombie.codeupdate.mode=apply
+```
+
+The Java SDK also recognizes the `TESTZOMBIE_SOURCE_UPDATE_MODE` environment variable when no explicit Java mode overrides it. **In this example**, `AppiumDriverFactory` explicitly calls `TestZombieDriver.setSourceUpdateMode(...)`, so the selected mode for each test takes precedence over that environment variable.
+
+---
+
+## Useful commands
+
+| Command | Purpose |
+| --- | --- |
+| `appium server --allow-insecure uiautomator2:chromedriver_autodownload` | Start Appium with WebView ChromeDriver download enabled |
+| `adb devices` | Confirm a device or emulator is connected |
+| `mvn test -Dtest=OnboardingFlowTest` | Self-Healing on levels 0–4 |
+| `mvn test -Dtest=DiscoveryLevel0Test` | Native Discovery on stable Level 0 |
+| `mvn test -Dtest=CodeUpdateLevel0And1Test` | Level 0 → Level 1, with source updates in `APPLY` mode |
+| `mvn test -Dtest=CodeUpdateLevel0And1Test -Dtestzombie.codeupdate.mode=preview` | Preview source edits without writing files |
+| `mvn test -Dtest=MutationLevelMatrixTest` | Diagnostic app control using known level-specific locators |
+| `mvn test -Dtest=OnboardingFlowTest -Ddevice.name="Pixel 10"` | Select another device name |
+| `mvn test -Dtest=OnboardingFlowTest -Dapp.apk=/path/to/app.apk` | Select a different APK |
+| `mvn test` | Run **all** tests (including the source-modifying Code Update demo) |
+
+You can also configure the device and server through either Maven properties or environment variables:
+
+| Setting | Java system property | Environment variable | Default |
+| --- | --- | --- | --- |
+| Appium server | `appium.server` | `APPIUM_SERVER` | `http://127.0.0.1:4723` |
+| Device name | `device.name` | `DEVICE_NAME` | `Pixel 10` |
+| APK path | `app.apk` | `APP_APK` | `./testzombie-demo.apk` |
+| API key | `testzombie.apikey` | `TESTZOMBIE_API_KEY` | No value |
+| E-mail | `testzombie.email` | `TESTZOMBIE_EMAIL` | No value |
+| Discovery file path | `testzombie.discovery.file` | `TESTZOMBIE_DISCOVERY_FILE` | `test-results/testzombie-discovery-{testRunId}.json` |
+
+---
+
+## Project structure
+
+```text
+testzombie-example-appium-android/
+├── pom.xml
+├── README.md
+├── testzombie-demo.apk
+├── scripts/
+└── src/test/java/ai/testzombie/appium/
+    ├── pages/
+    │   └── HybridOnboardingPage.java
+    ├── support/
+    │   ├── AppiumDriverFactory.java
+    │   ├── MutationLevel.java
+    │   ├── NativeDiscovery.java
+    │   └── ScrollHelper.java
+    ├── testbase/
+    │   ├── BaseAndroidTest.java
+    │   └── OnboardingScenario.java
+    └── tests/
+        ├── CodeUpdateLevel0And1Test.java
+        ├── DiscoveryLevel0Test.java
+        ├── MutationLevelMatrixTest.java
+        └── OnboardingFlowTest.java
+```
+
+`BaseAndroidTest` manages the Appium session lifecycle, sets per-test TestZombie options, and captures screenshots in `target/screenshots` on failure. `OnboardingScenario` runs the same onboarding steps in all three TestZombie demos. `HybridOnboardingPage` owns the native and WebView interactions, and `ScrollHelper` handles scrolling during the native flow.
+
+### Optional control: MutationLevelMatrixTest
+
+The matrix test is **not** another Self-Healing demo. It executes levels 0–4 with the app's known level-specific selectors to help isolate UI/app issues from locator-healing problems:
+
+```bash
+mvn test -Dtest=MutationLevelMatrixTest
+```
+
+It is a diagnostic test in the same project; the feature demos remain Self-Healing, Discovery, and Code Update.
+
+---
+
+## Android device and WebView troubleshooting
+
+**`No Chromedriver found` or WebView context switch fails**
+
+Ensure Android Chrome / System WebView is present and start Appium with:
 
 ```bash
 appium server --allow-insecure uiautomator2:chromedriver_autodownload
 ```
 
-In einem zweiten Terminal:
+Appium must be allowed to download a compatible ChromeDriver when one is not already available.
+
+**`APK nicht gefunden`**
+
+Confirm that `testzombie-demo.apk` exists in the working directory, or pass an explicit path:
 
 ```bash
-mvn test
+mvn test -Dtest=OnboardingFlowTest -Dapp.apk=/absolute/path/to/testzombie-demo.apk
 ```
 
-Die Tests bleiben normale Appium-Tests. TestZombie wird zentral bei der Driver-Erzeugung in `AppiumTestBase` integriert.
+**`TestZombie credentials missing`**
+
+Check the `defaults` profile in `pom.xml` or pass `-Dtestzombie.apikey` and `-Dtestzombie.email` to Maven. Alternatively, set `TESTZOMBIE_API_KEY` and `TESTZOMBIE_EMAIL`.
+
+**No device or emulator detected**
+
+Run `adb devices` and confirm the device appears as `device` rather than `offline` or `unauthorized`.
+
+---
+
+## Security
+
+Never commit API keys, account credentials, or sensitive test artifacts to source control. For a first local test you may place credentials into the `pom.xml` `defaults` profile, but **restore the empty values before committing or sharing** the file. In shared repositories and CI/CD, use securely supplied runtime properties or environment variables.
+
+## More validation
+
+The five mutation levels let you distinguish an unchanged baseline from healing under progressively changed locators and UI structures. The three main tests demonstrate the SDK features; the matrix test provides a separate check of the app's known locator variants.
+
+If Self-Healing unexpectedly fails, run the Level-0 baseline and the matching matrix level to investigate the underlying app behavior. For source-update runs, review `git diff` before committing the updated Page Objects.
